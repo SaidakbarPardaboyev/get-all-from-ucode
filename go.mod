@@ -1,4 +1,4 @@
-module get_all
+module github.com/SaidakbarPardaboyev/get-all-from-ucode
 
 go 1.22.2
 

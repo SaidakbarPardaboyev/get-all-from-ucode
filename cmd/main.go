@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"get_all"
+	"github.com/SaidakbarPardaboyev/get-all-from-ucode"
 	"time"
 )
 
