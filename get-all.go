@@ -89,20 +89,24 @@ func (g *GetAllI) countPostgres() (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Base query
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", g.collection)
 
+	var values []interface{}
 	if g.filter != nil {
-		conditions, values := buildPostgresConditions(g.filter)
+		conditions, vals := buildPostgresConditions(g.filter)
 		query += fmt.Sprintf(" WHERE %s", conditions)
-		var count int64
-		err := g.config.PostgresDb.QueryRow(ctx, query, values...).Scan(&count)
-		if err != nil {
-			return 0, fmt.Errorf("failed to count rows: %v", err)
-		}
-		return count, nil
+		values = vals
 	}
 
-	return 0, nil
+	// Execute the query
+	var count int64
+	err := g.config.PostgresDb.QueryRow(ctx, query, values...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count rows: %v", err)
+	}
+
+	return count, nil
 }
 
 // Exec executes the query and returns the results

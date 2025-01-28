@@ -43,6 +43,9 @@ func main() {
 	}
 
 	// fmt.Println(len(items))
+	// for _, item := range items {
+	// 	fmt.Println(item["id"], item["created_at"])
+	// }
 	fmt.Println(items)
 
 	endingTime = time.Now()
