@@ -2,36 +2,35 @@ package main
 
 import (
 	"fmt"
-	"github.com/SaidakbarPardaboyev/get-all-from-ucode"
+	"log"
+	"os"
 	"time"
+
+	get_all "github.com/SaidakbarPardaboyev/get-all-from-ucode"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	var (
 		startingTime = time.Now()
 		endingTime   time.Time
 	)
 
-	// Call the handler directly
-	var (
-		// cfg = get_all.Config{
-		// 	DB_HOST:     "142.93.164.37",
-		// 	DB_PORT:     "27017",
-		// 	DB_USER:     "mybazar_0f1dc8ebeda749bb80a31f78af44536d_p_obj_build_svcs",
-		// 	DB_PASSWORD: "JurgVHHYW5",
-		// 	DB_NAME:     "mybazar_0f1dc8ebeda749bb80a31f78af44536d_p_obj_build_svcs",
-		// 	DB_TYPE:     "mongo",
-		// }
+	// Read database credentials from environment variables
+	cfg := get_all.Config{
+		DB_HOST:     os.Getenv("DB_HOST"),
+		DB_PORT:     os.Getenv("DB_PORT"),
+		DB_USER:     os.Getenv("DB_USER"),
+		DB_PASSWORD: os.Getenv("DB_PASSWORD"),
+		DB_NAME:     os.Getenv("DB_NAME"),
+		DB_TYPE:     os.Getenv("DB_TYPE"),
+	}
 
-		cfg = get_all.Config{
-			DB_HOST:     "142.93.164.37",
-			DB_PORT:     "30032",
-			DB_USER:     "brrauf_3a40b209092f45eca6a93a8d8f1af9d4_p_postgres_svcs",
-			DB_PASSWORD: "BnwgaR4Hvk",
-			DB_NAME:     "brrauf_3a40b209092f45eca6a93a8d8f1af9d4_p_postgres_svcs",
-			DB_TYPE:     "postgres",
-		}
-	)
 	apis, err := get_all.New(&cfg)
 	if err != nil {
 		panic(fmt.Errorf("error creating function: %v", err))
@@ -42,10 +41,6 @@ func main() {
 		panic(fmt.Errorf("error executing function: %v", err))
 	}
 
-	// fmt.Println(len(items))
-	// for _, item := range items {
-	// 	fmt.Println(item["id"], item["created_at"])
-	// }
 	fmt.Println(items)
 
 	endingTime = time.Now()
