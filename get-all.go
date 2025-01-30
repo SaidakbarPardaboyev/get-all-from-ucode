@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type ItemsI interface {
@@ -48,6 +48,13 @@ func (g *GetAllI) Limit(limit int64) *GetAllI {
 
 func (g *GetAllI) Skip(skip int64) *GetAllI {
 	g.skip = skip
+	return g
+}
+
+func (g *GetAllI) Pipeline(pipeline map[string]any) *GetAllI {
+	if g.config.DB_TYPE == "mongo" {
+		g.pipeline = pipeline
+	}
 	return g
 }
 
@@ -124,47 +131,103 @@ func (g *GetAllI) Exec() ([]map[string]interface{}, error) {
 	return nil, fmt.Errorf("unsupported DB_TYPE")
 }
 
+// func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
+// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// 	defer cancel()
+
+// 	collection := g.config.MongoDb.Collection(g.collection)
+// 	opts := options.Find()
+
+// 	if g.sort != nil {
+// 		opts.SetSort(g.sort)
+// 	}
+// 	if g.limit > 0 {
+// 		opts.SetLimit(g.limit)
+// 	}
+// 	if g.skip > 0 {
+// 		opts.SetSkip(g.skip)
+// 	}
+
+// 	filter := bson.M{}
+// 	if g.filter != nil {
+// 		filter = g.filter
+// 	}
+
+// 	cursor, err := collection.Find(ctx, filter, opts)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to execute query: %v", err)
+// 	}
+// 	defer cursor.Close(ctx)
+
+// 	var results []map[string]interface{}
+// 	for cursor.Next(ctx) {
+// 		var doc map[string]interface{}
+// 		if err := cursor.Decode(&doc); err != nil {
+// 			return nil, fmt.Errorf("failed to decode document: %v", err)
+// 		}
+// 		results = append(results, doc)
+// 	}
+
+// 	if err := cursor.Err(); err != nil {
+// 		return nil, fmt.Errorf("cursor error: %v", err)
+// 	}
+
+// 	return results, nil
+// }
+
 func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	collection := g.config.MongoDb.Collection(g.collection)
-	opts := options.Find()
+	var results []map[string]any
 
-	if g.sort != nil {
-		opts.SetSort(g.sort)
-	}
-	if g.limit > 0 {
-		opts.SetLimit(g.limit)
-	}
-	if g.skip > 0 {
-		opts.SetSkip(g.skip)
-	}
+	if g.pipeline != nil { // If pipeline exists, modify it dynamically
+		modifiedPipeline := mongo.Pipeline{}
 
-	filter := bson.M{}
-	if g.filter != nil {
-		filter = g.filter
-	}
-
-	cursor, err := collection.Find(ctx, filter, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute query: %v", err)
-	}
-	defer cursor.Close(ctx)
-
-	var results []map[string]interface{}
-	for cursor.Next(ctx) {
-		var doc map[string]interface{}
-		if err := cursor.Decode(&doc); err != nil {
-			return nil, fmt.Errorf("failed to decode document: %v", err)
+		// If a filter exists, prepend a $match stage
+		if g.filter != nil {
+			modifiedPipeline = append(modifiedPipeline, bson.D{{"$match", g.filter}})
 		}
-		results = append(results, doc)
-	}
 
-	if err := cursor.Err(); err != nil {
-		return nil, fmt.Errorf("cursor error: %v", err)
-	}
+		// Convert pipeline (map[string]any) to mongo.Pipeline
+		for key, value := range g.pipeline {
+			// Ensure we append stages in correct format (bson.D for each stage)
+			modifiedPipeline = append(modifiedPipeline, bson.D{{key, value}})
+		}
+		// If sort exists, append a $sort stage
+		if g.sort != nil {
+			modifiedPipeline = append(modifiedPipeline, bson.D{{"$sort", g.sort}})
+		}
 
+		// If skip exists, append a $skip stage
+		if g.skip > 0 {
+			modifiedPipeline = append(modifiedPipeline, bson.D{{"$skip", g.skip}})
+		}
+
+		// If limit exists, append a $limit stage
+		if g.limit > 0 {
+			modifiedPipeline = append(modifiedPipeline, bson.D{{"$limit", g.limit}})
+		}
+
+		cursor, err := collection.Aggregate(ctx, modifiedPipeline)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute aggregation: %v", err)
+		}
+		defer cursor.Close(ctx)
+
+		for cursor.Next(ctx) {
+			var doc map[string]any
+			if err := cursor.Decode(&doc); err != nil {
+				return nil, fmt.Errorf("failed to decode document: %v", err)
+			}
+			results = append(results, doc)
+		}
+
+		if err := cursor.Err(); err != nil {
+			return nil, fmt.Errorf("cursor error: %v", err)
+		}
+	}
 	return results, nil
 }
 

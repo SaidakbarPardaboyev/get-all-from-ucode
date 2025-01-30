@@ -36,6 +36,7 @@ type GetAllI struct {
 	filter     map[string]interface{}
 	limit      int64
 	skip       int64
+	pipeline   map[string]any
 }
 
 type object struct {

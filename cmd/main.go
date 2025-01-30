@@ -36,12 +36,14 @@ func main() {
 		panic(fmt.Errorf("error creating function: %v", err))
 	}
 
-	items, err := apis.Items("request").GetAll().Count()
+	items, err := apis.Items("all_logs").GetAll().Pipeline(map[string]any{"$match": map[string]any{"error_level": map[string]any{"$eq": "info"}}}).Sort(map[string]any{"createdAt": -1}).Exec()
 	if err != nil {
 		panic(fmt.Errorf("error executing function: %v", err))
 	}
 
-	fmt.Println(items)
+	for _, item := range items {
+		fmt.Println(item["error_level"], item["createdAt"])
+	}
 
 	endingTime = time.Now()
 	fmt.Println("Execution time:", endingTime.Sub(startingTime))
