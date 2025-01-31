@@ -191,12 +191,28 @@ func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
 		}
 
 		// Convert pipeline (map[string]any) to mongo.Pipeline
-		for _, pipeline := range g.pipeline {
-			for key, value := range pipeline {
-				// Ensure we append stages in correct format (bson.D for each stage)
-				modifiedPipeline = append(modifiedPipeline, bson.D{{key, value}})
+		for _, stage := range g.pipeline {
+			for key, value := range stage {
+				if key == "$match" {
+					matchStage := bson.D{}
+					matchMap, ok := value.(map[string]any)
+					if ok {
+						for field, val := range matchMap {
+							switch v := val.(type) {
+							case []string: // Convert to {"field": {"$in": [...]}}
+								matchStage = append(matchStage, bson.E{field, bson.D{{"$in", v}}})
+							default:
+								matchStage = append(matchStage, bson.E{field, v})
+							}
+						}
+					}
+					modifiedPipeline = append(modifiedPipeline, bson.D{{"$match", matchStage}})
+				} else {
+					modifiedPipeline = append(modifiedPipeline, bson.D{{key, value}})
+				}
 			}
 		}
+
 		// If sort exists, append a $sort stage
 		if g.sort != nil {
 			modifiedPipeline = append(modifiedPipeline, bson.D{{"$sort", g.sort}})
