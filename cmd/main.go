@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -36,13 +37,44 @@ func main() {
 		panic(fmt.Errorf("error creating function: %v", err))
 	}
 
-	items, err := apis.Items("all_logs").GetAll().Pipeline(map[string]any{"$match": map[string]any{"error_level": map[string]any{"$eq": "info"}}}).Sort(map[string]any{"createdAt": -1}).Exec()
+	items, err := apis.Items("products").GetAll().Pipeline([]map[string]any{
+		{
+			"$match": map[string]any{
+				"merchant_id": "827c0e4e-b823-4567-bac5-18fc39f77de3",
+			},
+		},
+		{
+			"$lookup": map[string]any{
+				"from":         "product_images",	
+				"localField":   "guid",
+				"foreignField": "product_id",
+				"as":           "product_images",
+			},
+		},
+		{
+			"$lookup": map[string]any{
+				"from":         "product_options",
+				"localField":   "guid",
+				"foreignField": "product_id",
+				"as":           "product_options",
+			},
+		},
+		{
+			"$lookup": map[string]any{
+				"from":         "product_variations",
+				"localField":   "guid",
+				"foreignField": "product_id",
+				"as":           "product_variations",
+			},
+		},
+	}).Sort(map[string]any{"createdAt": -1}).Exec()
 	if err != nil {
 		panic(fmt.Errorf("error executing function: %v", err))
 	}
 
 	for _, item := range items {
-		fmt.Println(item["error_level"], item["createdAt"])
+		decidedData, _ := json.Marshal(item)
+		fmt.Println(string(decidedData))
 	}
 
 	endingTime = time.Now()

@@ -51,7 +51,7 @@ func (g *GetAllI) Skip(skip int64) *GetAllI {
 	return g
 }
 
-func (g *GetAllI) Pipeline(pipeline map[string]any) *GetAllI {
+func (g *GetAllI) Pipeline(pipeline []map[string]any) *GetAllI {
 	if g.config.DB_TYPE == "mongo" {
 		g.pipeline = pipeline
 	}
@@ -191,9 +191,11 @@ func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
 		}
 
 		// Convert pipeline (map[string]any) to mongo.Pipeline
-		for key, value := range g.pipeline {
-			// Ensure we append stages in correct format (bson.D for each stage)
-			modifiedPipeline = append(modifiedPipeline, bson.D{{key, value}})
+		for _, pipeline := range g.pipeline {
+			for key, value := range pipeline {
+				// Ensure we append stages in correct format (bson.D for each stage)
+				modifiedPipeline = append(modifiedPipeline, bson.D{{key, value}})
+			}
 		}
 		// If sort exists, append a $sort stage
 		if g.sort != nil {
