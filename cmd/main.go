@@ -37,37 +37,7 @@ func main() {
 		panic(fmt.Errorf("error creating function: %v", err))
 	}
 
-	items, err := apis.Items("products").GetAll().Pipeline([]map[string]any{
-		{
-			"$match": map[string]any{
-				"guid": []string{"340845d9-0219-4aec-aae1-f28c5c4bb859", "3fc80387-01aa-4c28-bf51-d71bf7ba8a4e"},
-			},
-		},
-		{
-			"$lookup": map[string]any{
-				"from":         "product_images",
-				"localField":   "guid",
-				"foreignField": "product_id",
-				"as":           "product_images",
-			},
-		},
-		{
-			"$lookup": map[string]any{
-				"from":         "product_options",
-				"localField":   "guid",
-				"foreignField": "product_id",
-				"as":           "product_options",
-			},
-		},
-		{
-			"$lookup": map[string]any{
-				"from":         "product_variations",
-				"localField":   "guid",
-				"foreignField": "product_id",
-				"as":           "product_variations",
-			},
-		},
-	}).Exec()
+	items, err := apis.Items("products").GetAll().Filter(map[string]any{"shopify_id": 8811080024280}).Pipeline([]map[string]any{}).Exec()
 	if err != nil {
 		panic(fmt.Errorf("error executing function: %v", err))
 	}

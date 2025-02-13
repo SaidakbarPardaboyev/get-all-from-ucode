@@ -182,22 +182,24 @@ func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
 	collection := g.config.MongoDb.Collection(g.collection)
 	var results []map[string]any
 
+	matchedPipeline := mongo.Pipeline{}
+	modifiedPipeline := mongo.Pipeline{}
 	if g.pipeline != nil { // If pipeline exists, modify it dynamically
-		modifiedPipeline := mongo.Pipeline{}
-
-		// If a filter exists, prepend a $match stage
-		if g.filter != nil {
-			modifiedPipeline = append(modifiedPipeline, bson.D{{"$match", g.filter}})
-		}
 
 		// Convert pipeline (map[string]any) to mongo.Pipeline
 		for _, stage := range g.pipeline {
+
 			for key, value := range stage {
+
 				if key == "$match" {
+
 					matchStage := bson.D{}
 					matchMap, ok := value.(map[string]any)
+
 					if ok {
+
 						for field, val := range matchMap {
+
 							switch v := val.(type) {
 							case []string: // Convert to {"field": {"$in": [...]}}
 								matchStage = append(matchStage, bson.E{field, bson.D{{"$in", v}}})
@@ -205,46 +207,58 @@ func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
 								matchStage = append(matchStage, bson.E{field, v})
 							}
 						}
+
 					}
-					modifiedPipeline = append(modifiedPipeline, bson.D{{"$match", matchStage}})
+
+					matchedPipeline = append(matchedPipeline, bson.D{{"$match", matchStage}})
+
 				} else {
+
 					modifiedPipeline = append(modifiedPipeline, bson.D{{key, value}})
+
 				}
 			}
 		}
+	}
 
-		// If sort exists, append a $sort stage
-		if g.sort != nil {
-			modifiedPipeline = append(modifiedPipeline, bson.D{{"$sort", g.sort}})
-		}
+	// If a filter exists, prepend a $match stage
+	if g.filter != nil {
+		matchedPipeline = append(matchedPipeline, bson.D{{"$match", g.filter}})
+	}
 
-		// If skip exists, append a $skip stage
-		if g.skip > 0 {
-			modifiedPipeline = append(modifiedPipeline, bson.D{{"$skip", g.skip}})
-		}
+	// If sort exists, append a $sort stage
+	if g.sort != nil {
+		modifiedPipeline = append(modifiedPipeline, bson.D{{"$sort", g.sort}})
+	}
 
-		// If limit exists, append a $limit stage
-		if g.limit > 0 {
-			modifiedPipeline = append(modifiedPipeline, bson.D{{"$limit", g.limit}})
-		}
+	// If skip exists, append a $skip stage
+	if g.skip > 0 {
+		modifiedPipeline = append(modifiedPipeline, bson.D{{"$skip", g.skip}})
+	}
 
-		cursor, err := collection.Aggregate(ctx, modifiedPipeline)
-		if err != nil {
-			return nil, fmt.Errorf("failed to execute aggregation: %v", err)
-		}
-		defer cursor.Close(ctx)
+	// If limit exists, append a $limit stage
+	if g.limit > 0 {
+		modifiedPipeline = append(modifiedPipeline, bson.D{{"$limit", g.limit}})
+	}
 
-		for cursor.Next(ctx) {
-			var doc map[string]any
-			if err := cursor.Decode(&doc); err != nil {
-				return nil, fmt.Errorf("failed to decode document: %v", err)
-			}
-			results = append(results, doc)
-		}
+	modifiedPipeline = append(matchedPipeline, modifiedPipeline...)
 
-		if err := cursor.Err(); err != nil {
-			return nil, fmt.Errorf("cursor error: %v", err)
+	cursor, err := collection.Aggregate(ctx, modifiedPipeline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute aggregation: %v", err)
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var doc map[string]any
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, fmt.Errorf("failed to decode document: %v", err)
 		}
+		results = append(results, doc)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, fmt.Errorf("cursor error: %v", err)
 	}
 	return results, nil
 }
