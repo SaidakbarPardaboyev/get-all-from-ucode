@@ -74,7 +74,7 @@ func (g *GetAllI) Count() (int64, error) {
 }
 
 func (g *GetAllI) countMongo() (int64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
 	collection := g.config.MongoDb.Collection(g.collection)
@@ -93,7 +93,7 @@ func (g *GetAllI) countMongo() (int64, error) {
 }
 
 func (g *GetAllI) countPostgres() (int64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
 	// Base query
@@ -176,7 +176,7 @@ func (g *GetAllI) Exec() ([]map[string]interface{}, error) {
 // }
 
 func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
 	collection := g.config.MongoDb.Collection(g.collection)
@@ -264,7 +264,7 @@ func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
 }
 
 func (g *GetAllI) execPostgres() ([]map[string]interface{}, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
 	query := fmt.Sprintf("SELECT * FROM %s", g.collection)
