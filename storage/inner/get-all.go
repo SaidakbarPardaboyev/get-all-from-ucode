@@ -1,83 +1,79 @@
-package get_all
+package inner
 
 import (
 	"context"
 	"fmt"
 	"time"
 
+	"github.com/SaidakbarPardaboyev/get-all-from-ucode/pkg"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type ItemsI interface {
-	GetAll() *GetAllI
+type GetAll struct {
+	Collection string
+	Config     *pkg.InnerConfig
+	sort       map[string]interface{}
+	filter     map[string]interface{}
+	limit      int64
+	skip       int64
+	pipeline   []map[string]any
 }
 
-func (o *object) Items(collection string) ItemsI {
-	return &APIItem{
-		collection: collection,
-		config: &innerConfig{
-			MongoDb:    o.mongoDb,
-			PostgresDb: o.postgresDb,
-			DB_TYPE:    o.config.DB_TYPE,
-		},
+func NewGetAllRepo(collection string, config *pkg.InnerConfig) *GetAll {
+	return &GetAll{
+		Collection: collection,
+		Config:     config,
 	}
 }
 
-func (i *APIItem) GetAll() *GetAllI {
-	return &GetAllI{
-		collection: i.collection,
-		config:     i.config,
-	}
-}
-
-func (g *GetAllI) Filter(filter map[string]interface{}) *GetAllI {
+func (g *GetAll) Filter(filter map[string]interface{}) *GetAll {
 	g.filter = filter
 	return g
 }
 
-func (g *GetAllI) Sort(sort map[string]interface{}) *GetAllI {
+func (g *GetAll) Sort(sort map[string]interface{}) *GetAll {
 	g.sort = sort
 	return g
 }
 
-func (g *GetAllI) Limit(limit int64) *GetAllI {
+func (g *GetAll) Limit(limit int64) *GetAll {
 	g.limit = limit
 	return g
 }
 
-func (g *GetAllI) Skip(skip int64) *GetAllI {
+func (g *GetAll) Skip(skip int64) *GetAll {
 	g.skip = skip
 	return g
 }
 
-func (g *GetAllI) Pipeline(pipeline []map[string]any) *GetAllI {
-	if g.config.DB_TYPE == "mongo" {
+func (g *GetAll) Pipeline(pipeline []map[string]any) *GetAll {
+	if g.Config.DB_TYPE == "mongo" {
 		g.pipeline = pipeline
 	}
 	return g
 }
 
 // Count returns the number of records matching the filter
-func (g *GetAllI) Count() (int64, error) {
-	if g.collection == "" || g.config == nil {
+func (g *GetAll) Count() (int64, error) {
+	if g.Collection == "" || g.Config == nil {
 		return 0, fmt.Errorf("collection and config must be set")
 	}
 
-	if g.config.DB_TYPE == "mongo" {
+	if g.Config.DB_TYPE == "mongo" {
 		return g.countMongo()
-	} else if g.config.DB_TYPE == "postgres" {
+	} else if g.Config.DB_TYPE == "postgres" {
 		return g.countPostgres()
 	}
 
 	return 0, fmt.Errorf("unsupported DB_TYPE")
 }
 
-func (g *GetAllI) countMongo() (int64, error) {
+func (g *GetAll) countMongo() (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
-	collection := g.config.MongoDb.Collection(g.collection)
+	collection := g.Config.MongoDb.Collection(g.Collection)
 
 	filter := bson.M{}
 	if g.filter != nil {
@@ -92,12 +88,12 @@ func (g *GetAllI) countMongo() (int64, error) {
 	return count, nil
 }
 
-func (g *GetAllI) countPostgres() (int64, error) {
+func (g *GetAll) countPostgres() (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
 	// Base query
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", g.collection)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", g.Collection)
 
 	var values []interface{}
 	if g.filter != nil {
@@ -108,7 +104,7 @@ func (g *GetAllI) countPostgres() (int64, error) {
 
 	// Execute the query
 	var count int64
-	err := g.config.PostgresDb.QueryRow(ctx, query, values...).Scan(&count)
+	err := g.Config.PostgresDb.QueryRow(ctx, query, values...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count rows: %v", err)
 	}
@@ -117,14 +113,14 @@ func (g *GetAllI) countPostgres() (int64, error) {
 }
 
 // Exec executes the query and returns the results
-func (g *GetAllI) Exec() ([]map[string]interface{}, error) {
-	if g.collection == "" || g.config == nil {
+func (g *GetAll) Exec() ([]map[string]interface{}, error) {
+	if g.Collection == "" || g.Config == nil {
 		return nil, fmt.Errorf("collection and config must be set")
 	}
 
-	if g.config.DB_TYPE == "mongo" {
+	if g.Config.DB_TYPE == "mongo" {
 		return g.execMongo()
-	} else if g.config.DB_TYPE == "postgres" {
+	} else if g.Config.DB_TYPE == "postgres" {
 		return g.execPostgres()
 	}
 
@@ -175,11 +171,11 @@ func (g *GetAllI) Exec() ([]map[string]interface{}, error) {
 // 	return results, nil
 // }
 
-func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
+func (g *GetAll) execMongo() ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
-	collection := g.config.MongoDb.Collection(g.collection)
+	collection := g.Config.MongoDb.Collection(g.Collection)
 	var results []map[string]any
 
 	matchedPipeline := mongo.Pipeline{}
@@ -263,11 +259,11 @@ func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
 	return results, nil
 }
 
-func (g *GetAllI) execPostgres() ([]map[string]interface{}, error) {
+func (g *GetAll) execPostgres() ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
-	query := fmt.Sprintf("SELECT * FROM %s", g.collection)
+	query := fmt.Sprintf("SELECT * FROM %s", g.Collection)
 
 	var values []interface{}
 	if g.filter != nil {
@@ -286,7 +282,7 @@ func (g *GetAllI) execPostgres() ([]map[string]interface{}, error) {
 		query += fmt.Sprintf(" OFFSET %d", g.skip)
 	}
 
-	rows, err := g.config.PostgresDb.Query(ctx, query, values...)
+	rows, err := g.Config.PostgresDb.Query(ctx, query, values...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %v", err)
 	}

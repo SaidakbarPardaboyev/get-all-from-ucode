@@ -1,13 +1,14 @@
-package get_all
+package db
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/SaidakbarPardaboyev/get-all-from-ucode/pkg"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func ConnectPostgresDB(cfg *Config) (*pgxpool.Pool, error) {
+func ConnectPostgresDB(cfg *pkg.Config) (*pgxpool.Pool, error) {
 	// Build the PostgreSQL connection string
 	postgresString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
 		cfg.DB_USER,

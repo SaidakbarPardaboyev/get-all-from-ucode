@@ -1,4 +1,4 @@
-package get_all
+package pkg
 
 import (
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,7 +16,7 @@ type Config struct {
 	DB_TYPE string
 }
 
-type innerConfig struct {
+type InnerConfig struct {
 	MongoDb    *mongo.Database
 	PostgresDb *pgxpool.Pool
 
@@ -25,22 +25,16 @@ type innerConfig struct {
 }
 
 type APIItem struct {
-	collection string
-	config     *innerConfig
+	Collection string
+	Config     *InnerConfig
 }
 
 type GetAllI struct {
-	collection string
-	config     *innerConfig
-	sort       map[string]interface{}
-	filter     map[string]interface{}
-	limit      int64
-	skip       int64
-	pipeline   []map[string]any
-}
-
-type object struct {
-	config     *Config
-	mongoDb    *mongo.Database
-	postgresDb *pgxpool.Pool
+	Collection string
+	Config     *InnerConfig
+	Sort       map[string]interface{}
+	Filter     map[string]interface{}
+	Limit      int64
+	Skip       int64
+	Pipeline   []map[string]any
 }

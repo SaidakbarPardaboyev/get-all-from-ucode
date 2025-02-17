@@ -1,14 +1,15 @@
-package get_all
+package db
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/SaidakbarPardaboyev/get-all-from-ucode/pkg"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func ConnectMongoDB(cfg *Config) (*mongo.Database, error) {
+func ConnectMongoDB(cfg *pkg.Config) (*mongo.Database, error) {
 	mongoString := fmt.Sprintf("mongodb://%s:%s", cfg.DB_HOST, cfg.DB_PORT)
 
 	credential := options.Credential{

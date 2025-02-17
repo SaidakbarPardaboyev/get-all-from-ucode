@@ -1,14 +1,16 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
 	"os"
-	"time"
 
-	get_all "github.com/SaidakbarPardaboyev/get-all-from-ucode"
+	"github.com/SaidakbarPardaboyev/get-all-from-ucode/pkg"
+	"github.com/SaidakbarPardaboyev/get-all-from-ucode/storage"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func main() {
@@ -17,13 +19,8 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	var (
-		startingTime = time.Now()
-		endingTime   time.Time
-	)
-
 	// Read database credentials from environment variables
-	cfg := get_all.Config{
+	cfg := pkg.Config{
 		DB_HOST:     os.Getenv("DB_HOST"),
 		DB_PORT:     os.Getenv("DB_PORT"),
 		DB_USER:     os.Getenv("DB_USER"),
@@ -32,21 +29,117 @@ func main() {
 		DB_TYPE:     os.Getenv("DB_TYPE"),
 	}
 
-	apis, err := get_all.New(&cfg)
+	apis, err := storage.New(&cfg)
 	if err != nil {
 		panic(fmt.Errorf("error creating function: %v", err))
 	}
 
-	items, err := apis.Items("products").GetAll().Filter(map[string]any{"shopify_id": 8811080024280}).Pipeline([]map[string]any{}).Exec()
+	err = apis.Items("products").MultipleUpdate().Exec(context.Background(), []mongo.WriteModel{mongo.NewUpdateOneModel().
+		SetFilter(bson.M{
+			"guid": bson.M{"$in": productGuids},
+		}).
+		SetUpdate(bson.M{
+			"$set": bson.M{
+				"shopify_id": float64(1),
+				// "shopify_inventory_item_id": float64(variant.InventoryItemId),
+			},
+		})})
 	if err != nil {
-		panic(fmt.Errorf("error executing function: %v", err))
+		panic("Error on update: " + err.Error())
 	}
 
-	for _, item := range items {
-		decidedData, _ := json.Marshal(item)
-		fmt.Println(string(decidedData))
-	}
+	// var (
+	// 	startingTime = time.Now()
+	// 	items        []map[string]any
+	// 	uniqueGuids  = map[string]bool{}
+	// )
 
-	endingTime = time.Now()
-	fmt.Println("Execution time:", endingTime.Sub(startingTime))
+	// // itemsResp, err := apis.Items("products").GetAll().Limit(50).Skip(int64(i) * 50).Pipeline([]map[string]any{
+	// itemsResp, err := apis.Items("products").GetAll().Pipeline([]map[string]any{
+	// 	{
+	// 		"$match": map[string]any{
+	// 			"guid": productGuids,
+	// 			// "disabled": false,
+	// 		},
+	// 	},
+	// 	{
+	// 		"$lookup": map[string]any{
+	// 			"from": "product_images",
+	// 			"let":  map[string]any{"productId": "$guid"},
+	// 			"pipeline": []map[string]any{
+	// 				{
+	// 					"$match": map[string]any{
+	// 						"$expr": map[string]any{
+	// 							"$and": []map[string]any{
+	// 								{"$eq": []any{"$product_id", "$$productId"}},
+	// 								{"$eq": []any{"$disabled", false}},
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 			"as": "product_images",
+	// 		},
+	// 	},
+	// 	{
+	// 		"$lookup": map[string]any{
+	// 			"from": "product_options",
+	// 			"let":  map[string]any{"productId": "$guid"},
+	// 			"pipeline": []map[string]any{
+	// 				{
+	// 					"$match": map[string]any{
+	// 						"$expr": map[string]any{
+	// 							"$and": []map[string]any{
+	// 								{"$eq": []any{"$product_id", "$$productId"}},
+	// 								{"$eq": []any{"$disabled", false}},
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 			"as": "product_options",
+	// 		},
+	// 	},
+	// 	{
+	// 		"$lookup": map[string]any{
+	// 			"from": "product_variations",
+	// 			"let":  map[string]any{"productId": "$guid"},
+	// 			"pipeline": []map[string]any{
+	// 				{
+	// 					"$match": map[string]any{
+	// 						"$expr": map[string]any{
+	// 							"$and": []map[string]any{
+	// 								{"$eq": []any{"$product_id", "$$productId"}},
+	// 								{"$eq": []any{"$disabled", false}},
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 			"as": "product_variations",
+	// 		},
+	// 	},
+	// }).Exec()
+	// if err != nil {
+	// 	panic(fmt.Errorf("error executing function: %v", err))
+	// }
+
+	// items = append(items, itemsResp...)
+
+	// fmt.Println("Execution time:", time.Since(startingTime))
+
+	// // for _, item := range items {
+	// // 	decidedData, _ := json.Marshal(item)
+	// // 	fmt.Println(string(decidedData))
+	// // }
+
+	// for _, item := range items {
+	// 	uniqueGuids[cast.ToString(item["guid"])] = true
+	// }
+
+	// fmt.Println("uniqueGuids", len(uniqueGuids))
+}
+
+var productGuids = []string{
+	"8f0a3f2e-1674-46e1-a932-bbd7ddb68809",
 }
