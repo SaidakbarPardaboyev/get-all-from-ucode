@@ -239,6 +239,7 @@ func (g *GetAll) execMongo() ([]map[string]interface{}, error) {
 
 	modifiedPipeline = append(matchedPipeline, modifiedPipeline...)
 
+	fmt.Println(modifiedPipeline)
 	cursor, err := collection.Aggregate(ctx, modifiedPipeline)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute aggregation: %v", err)

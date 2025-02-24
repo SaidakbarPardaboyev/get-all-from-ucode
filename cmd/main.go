@@ -45,7 +45,7 @@ func main() {
 			},
 		})})
 	if err != nil {
-		panic("Error on update: " + err.Error())
+		panic(err)
 	}
 
 	// var (
