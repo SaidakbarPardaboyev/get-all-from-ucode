@@ -82,7 +82,7 @@ func main() {
 		panic(fmt.Errorf("error creating function: %v", err))
 	}
 
-	var products = []Merchant{}
+	var products = []*Merchant{}
 	err = apis.Items("merchants").GetAll().Pipeline([]map[string]any{}).Exec(&products)
 	if err != nil {
 		panic(fmt.Errorf("error getting products: %v", err))
