@@ -3,13 +3,14 @@ package db
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/SaidakbarPardaboyev/get-all-from-ucode/pkg"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func ConnectMongoDB(cfg *pkg.Config) (*mongo.Database, error) {
+func ConnectMongoDB(cfg *pkg.Config) (*mongo.Client, *mongo.Database, error) {
 	mongoString := fmt.Sprintf("mongodb://%s:%s", cfg.DB_HOST, cfg.DB_PORT)
 
 	credential := options.Credential{
@@ -18,19 +19,26 @@ func ConnectMongoDB(cfg *pkg.Config) (*mongo.Database, error) {
 		AuthSource: cfg.DB_NAME,
 	}
 
-	conn, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoString).SetAuth(credential))
+	clientOptions := options.Client().
+		ApplyURI(mongoString).
+		SetAuth(credential).
+		SetMaxPoolSize(50).
+		SetMinPoolSize(10).
+		SetConnectTimeout(10 * time.Second).
+		SetSocketTimeout(30 * time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to MongoDB %s", err.Error())
+		return conn, nil, fmt.Errorf("error connecting to MongoDB: %w", err)
 	}
 
-	err = conn.Ping(context.Background(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("error pinging MongoDB %s", err.Error())
+	if err = conn.Ping(ctx, nil); err != nil {
+		return conn, nil, fmt.Errorf("error pinging MongoDB: %w", err)
 	}
 
 	fmt.Println("Successfully connected and pinged MongoDB")
-
-	db := conn.Database(cfg.DB_NAME)
-
-	return db, nil
+	return conn, conn.Database(cfg.DB_NAME), nil
 }

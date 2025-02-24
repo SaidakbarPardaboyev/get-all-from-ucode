@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/SaidakbarPardaboyev/get-all-from-ucode/pkg/db"
 	"github.com/SaidakbarPardaboyev/get-all-from-ucode/storage/repo"
 
@@ -18,12 +20,13 @@ type SaidakbarApis interface {
 func New(cfg *pkg.Config) (SaidakbarApis, error) {
 	var (
 		mongoDatabase *mongo.Database
+		conn          *mongo.Client
 		postgresConn  *pgxpool.Pool
 		err           error
 	)
 
 	if cfg.DB_TYPE == "mongo" {
-		mongoDatabase, err = db.ConnectMongoDB(cfg)
+		conn, mongoDatabase, err = db.ConnectMongoDB(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -35,16 +38,18 @@ func New(cfg *pkg.Config) (SaidakbarApis, error) {
 	}
 
 	return &object{
-		config:     cfg,
-		mongoDb:    mongoDatabase,
-		postgresDb: postgresConn,
+		config:      cfg,
+		mongoDb:     mongoDatabase,
+		mongoClient: conn,
+		postgresDb:  postgresConn,
 	}, nil
 }
 
 type object struct {
-	config     *pkg.Config
-	mongoDb    *mongo.Database
-	postgresDb *pgxpool.Pool
+	config      *pkg.Config
+	mongoDb     *mongo.Database
+	mongoClient *mongo.Client
+	postgresDb  *pgxpool.Pool
 }
 
 func (o *object) Config() *pkg.Config {
@@ -60,4 +65,8 @@ func (o *object) Items(collection string) repo.ItemsI {
 			DB_TYPE:    o.config.DB_TYPE,
 		},
 	}
+}
+
+func (o *object) Close(ctx context.Context) error {
+	return o.mongoClient.Disconnect(ctx)
 }

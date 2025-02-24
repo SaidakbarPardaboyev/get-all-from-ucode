@@ -113,18 +113,18 @@ func (g *GetAll) countPostgres() (int64, error) {
 }
 
 // Exec executes the query and returns the results
-func (g *GetAll) Exec() ([]map[string]interface{}, error) {
+func (g *GetAll) Exec(result interface{}) error {
 	if g.Collection == "" || g.Config == nil {
-		return nil, fmt.Errorf("collection and config must be set")
+		return fmt.Errorf("collection and config must be set")
 	}
 
 	if g.Config.DB_TYPE == "mongo" {
-		return g.execMongo()
+		return g.execMongo(result)
 	} else if g.Config.DB_TYPE == "postgres" {
-		return g.execPostgres()
+		// return g.execPostgres()
 	}
 
-	return nil, fmt.Errorf("unsupported DB_TYPE")
+	return fmt.Errorf("unsupported DB_TYPE")
 }
 
 // func (g *GetAllI) execMongo() ([]map[string]interface{}, error) {
@@ -171,15 +171,16 @@ func (g *GetAll) Exec() ([]map[string]interface{}, error) {
 // 	return results, nil
 // }
 
-func (g *GetAll) execMongo() ([]map[string]interface{}, error) {
+func (g *GetAll) execMongo(result interface{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
 	defer cancel()
 
-	collection := g.Config.MongoDb.Collection(g.Collection)
-	var results []map[string]any
+	var (
+		collection       = g.Config.MongoDb.Collection(g.Collection)
+		matchedPipeline  = mongo.Pipeline{}
+		modifiedPipeline = mongo.Pipeline{}
+	)
 
-	matchedPipeline := mongo.Pipeline{}
-	modifiedPipeline := mongo.Pipeline{}
 	if g.pipeline != nil { // If pipeline exists, modify it dynamically
 
 		// Convert pipeline (map[string]any) to mongo.Pipeline
@@ -198,19 +199,19 @@ func (g *GetAll) execMongo() ([]map[string]interface{}, error) {
 
 							switch v := val.(type) {
 							case []string: // Convert to {"field": {"$in": [...]}}
-								matchStage = append(matchStage, bson.E{field, bson.D{{"$in", v}}})
+								matchStage = append(matchStage, bson.E{Key: field, Value: bson.D{{"$in", v}}})
 							default:
-								matchStage = append(matchStage, bson.E{field, v})
+								matchStage = append(matchStage, bson.E{Key: field, Value: v})
 							}
 						}
 
 					}
 
-					matchedPipeline = append(matchedPipeline, bson.D{{"$match", matchStage}})
+					matchedPipeline = append(matchedPipeline, bson.D{{Key: "$match", Value: matchStage}})
 
 				} else {
 
-					modifiedPipeline = append(modifiedPipeline, bson.D{{key, value}})
+					modifiedPipeline = append(modifiedPipeline, bson.D{{Key: key, Value: value}})
 
 				}
 			}
@@ -219,22 +220,22 @@ func (g *GetAll) execMongo() ([]map[string]interface{}, error) {
 
 	// If a filter exists, prepend a $match stage
 	if g.filter != nil {
-		matchedPipeline = append(matchedPipeline, bson.D{{"$match", g.filter}})
+		matchedPipeline = append(matchedPipeline, bson.D{{Key: "$match", Value: g.filter}})
 	}
 
 	// If sort exists, append a $sort stage
 	if g.sort != nil {
-		modifiedPipeline = append(modifiedPipeline, bson.D{{"$sort", g.sort}})
+		modifiedPipeline = append(modifiedPipeline, bson.D{{Key: "$sort", Value: g.sort}})
 	}
 
 	// If skip exists, append a $skip stage
 	if g.skip > 0 {
-		modifiedPipeline = append(modifiedPipeline, bson.D{{"$skip", g.skip}})
+		modifiedPipeline = append(modifiedPipeline, bson.D{{Key: "$skip", Value: g.skip}})
 	}
 
 	// If limit exists, append a $limit stage
 	if g.limit > 0 {
-		modifiedPipeline = append(modifiedPipeline, bson.D{{"$limit", g.limit}})
+		modifiedPipeline = append(modifiedPipeline, bson.D{{Key: "$limit", Value: g.limit}})
 	}
 
 	modifiedPipeline = append(matchedPipeline, modifiedPipeline...)
@@ -242,22 +243,20 @@ func (g *GetAll) execMongo() ([]map[string]interface{}, error) {
 	fmt.Println(modifiedPipeline)
 	cursor, err := collection.Aggregate(ctx, modifiedPipeline)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute aggregation: %v", err)
+		return fmt.Errorf("failed to execute aggregation: %v", err)
 	}
 	defer cursor.Close(ctx)
 
-	for cursor.Next(ctx) {
-		var doc map[string]any
-		if err := cursor.Decode(&doc); err != nil {
-			return nil, fmt.Errorf("failed to decode document: %v", err)
-		}
-		results = append(results, doc)
+	// Decode the results into the provided slice
+	if err := cursor.All(ctx, result); err != nil {
+		return fmt.Errorf("failed to decode documents: %v", err)
 	}
 
 	if err := cursor.Err(); err != nil {
-		return nil, fmt.Errorf("cursor error: %v", err)
+		return fmt.Errorf("cursor error: %v", err)
 	}
-	return results, nil
+
+	return nil
 }
 
 func (g *GetAll) execPostgres() ([]map[string]interface{}, error) {
