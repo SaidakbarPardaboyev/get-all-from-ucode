@@ -9,5 +9,5 @@ type GetAllI interface {
 	Skip(skip int64) *inner.GetAll
 	Pipeline(pipeline []map[string]any) *inner.GetAll
 	Count() (int64, error)
-	Exec() ([]map[string]interface{}, error)
+	Exec(interface{}) error
 }

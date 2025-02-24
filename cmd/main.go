@@ -1,17 +1,65 @@
 package main
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/SaidakbarPardaboyev/get-all-from-ucode/pkg"
 	"github.com/SaidakbarPardaboyev/get-all-from-ucode/storage"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+type Product struct {
+	ID                 primitive.ObjectID `bson:"_id,omitempty"`
+	GUID               string             `bson:"guid"`
+	ShopifyID          int64              `bson:"shopify_id"`
+	Title              string             `bson:"title"`
+	Handle             string             `bson:"handle"`
+	BodyHTML           string             `bson:"body_html"`
+	ProductType        string             `bson:"product_type"`
+	PublishedAt        string             `bson:"published_at"`
+	PublishedScope     []string           `bson:"published_scope"`
+	Status             []string           `bson:"status"`
+	Tags               string             `bson:"tags"`
+	Vendor             string             `bson:"vendor"`
+	PlatformID         string             `bson:"platform_id"`
+	PlatformType       []string           `bson:"platform_type"`
+	Disabled           bool               `bson:"disabled"`
+	DisabledFrom       []string           `bson:"disabled_from"`
+	CreatedTime        string             `bson:"created_time"`
+	UpdatedTime        string             `bson:"updated_time"`
+	MerchantID         string             `bson:"merchant_id"`
+	PlatformCategoryID string             `bson:"platform_category_id"`
+	ShopifyProductID   *int64             `bson:"shopify_product_id,omitempty"`
+	ShopifyVariantID   *int64             `bson:"shopify_variant_id,omitempty"`
+	CreatedAt          *time.Time         `bson:"createdAt"`
+	UpdatedAt          *time.Time         `bson:"updatedAt"`
+	Version            int                `bson:"__v"`
+}
+
+type Merchant struct {
+	ID                                primitive.ObjectID `bson:"_id,omitempty"`
+	GUID                              string             `bson:"guid"`
+	Logo                              string             `bson:"logo"`
+	XAPIKey                           string             `bson:"x_api_key"`
+	IsActive                          bool               `bson:"is_active"`
+	Interval                          int32              `bson:"interval,omitempty"`
+	CronjobLastPerformTime            string             `bson:"cronjob_last_perform_time"`
+	ResponseBodyExample               string             `bson:"response_body_example"`
+	MyBazarAfterCreateMerchantDisable bool               `bson:"mybazar-after-create-merchant_disable"`
+	SyncType                          []string           `bson:"sync_type"`
+	IntegrationType                   []string           `bson:"integration_type"`
+	Name                              string             `bson:"name"`
+	WarehouseLocationID               int64              `bson:"warehouse_location_id"`
+	DisableAllProducts                bool               `bson:"disable_all_products"`
+	// CreatedAt                         *time.Time         `bson:"createdAt"`
+	// UpdatedAt                         *time.Time         `bson:"updatedAt"`
+	Version int `bson:"__v"`
+}
 
 func main() {
 	// Load environment variables from .env file
@@ -34,19 +82,14 @@ func main() {
 		panic(fmt.Errorf("error creating function: %v", err))
 	}
 
-	err = apis.Items("products").MultipleUpdate().Exec(context.Background(), []mongo.WriteModel{mongo.NewUpdateOneModel().
-		SetFilter(bson.M{
-			"guid": bson.M{"$in": productGuids},
-		}).
-		SetUpdate(bson.M{
-			"$set": bson.M{
-				"shopify_id": float64(1),
-				// "shopify_inventory_item_id": float64(variant.InventoryItemId),
-			},
-		})})
+	var products = []Merchant{}
+	err = apis.Items("merchants").GetAll().Pipeline([]map[string]any{}).Exec(&products)
 	if err != nil {
-		panic("Error on update: " + err.Error())
+		panic(fmt.Errorf("error getting products: %v", err))
 	}
+
+	decodedData, _ := json.Marshal(products)
+	fmt.Println(string(decodedData))
 
 	// var (
 	// 	startingTime = time.Now()
